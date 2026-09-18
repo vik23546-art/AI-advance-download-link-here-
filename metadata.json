@@ -1,6 +1,6 @@
 {
   "name": "Vespera",
-  "description": "Vespera v1.1 Hinata AI Companion with 3D avatar lip-sync, customizable voice pitch & speed, Hinglish/Hindi/English modes, and multimodal vision.",
+  "description": "Hinata AI v1.2 iOS Dark Water companion with 3D wireframe avatar, voice pitch/speed calibration, multimodal vision, and Hinglish roleplay.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

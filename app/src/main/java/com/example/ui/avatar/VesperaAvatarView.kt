@@ -70,6 +70,7 @@ import com.example.ui.theme.NeonPurple
 import com.example.ui.theme.SoftLavender
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
+import com.example.ui.theme.WaterRadialCenter
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -153,8 +154,7 @@ fun VesperaAvatarView(
             .background(
                 brush = Brush.radialGradient(
                     colors = listOf(
-                        BorderViolet.copy(alpha = if (isSpeaking) 0.5f else 0.28f),
-                        CardSurface,
+                        WaterRadialCenter.copy(alpha = if (isSpeaking) 0.95f else 0.80f),
                         DeepMidnight
                     ),
                     radius = 500f

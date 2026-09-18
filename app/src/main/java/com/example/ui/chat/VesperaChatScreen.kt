@@ -49,7 +49,6 @@ import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DeleteSweep
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -78,6 +77,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -101,6 +101,8 @@ import com.example.ui.theme.CardSurface
 import com.example.ui.theme.DarkSurface
 import com.example.ui.theme.DeepMidnight
 import com.example.ui.theme.GlowingCyan
+import com.example.ui.theme.IosBlue
+import com.example.ui.theme.IosBlueActive
 import com.example.ui.theme.ModalInputBg
 import com.example.ui.theme.NeonPurple
 import com.example.ui.theme.SoftLavender
@@ -138,7 +140,7 @@ fun VesperaChatScreen(
 
     val listState = rememberLazyListState()
 
-    // Auto-scroll to bottom on message updates
+    // Fast auto-scroll to bottom on message updates
     LaunchedEffect(messages.size, isLoading) {
         if (messages.isNotEmpty()) {
             listState.animateScrollToItem(messages.size - 1)
@@ -161,8 +163,8 @@ fun VesperaChatScreen(
             .navigationBarsPadding()
             .imePadding()
     ) {
-        // Top Bar (#top-bar)
-        VesperaTopBar(
+        // iOS Glassmorphism Top Bar (#top-bar)
+        IosTopBar(
             onOpenSettings = { showSettingsModal = true },
             onClearChat = { showClearConfirmDialog = true }
         )
@@ -172,8 +174,8 @@ fun VesperaChatScreen(
             errorMessage?.let { err ->
                 Surface(
                     color = AccentPink.copy(alpha = 0.2f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, AccentPink),
-                    shape = RoundedCornerShape(8.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, AccentPink.copy(alpha = 0.6f)),
+                    shape = RoundedCornerShape(12.dp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 14.dp, vertical = 4.dp)
@@ -203,35 +205,38 @@ fun VesperaChatScreen(
             }
         }
 
-        // Canvas / 3D Avatar View Container (#canvas-container)
+        // 3D Scene Area (#canvas-container)
         VesperaAvatarView(
             isSpeaking = isSpeaking,
             audioAmplitude = audioAmplitude,
             isVoiceEnabled = isVoiceEnabled,
             onToggleVoice = { viewModel.toggleVoice() },
             onAvatarTap = { viewModel.onAvatarTapped() },
-            modifier = Modifier.height(230.dp)
+            modifier = Modifier.weight(1f)
         )
 
-        // Chat Container (#chat-container)
+        // iOS Dark Water Chat Container (#chat-container)
         Surface(
             color = DarkSurface,
             shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f),
-            shadowElevation = 10.dp
+                .heightIn(min = 280.dp),
+            shadowElevation = 15.dp,
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x14FFFFFF))
         ) {
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(12.dp)
+                    .fillMaxWidth()
+                    .padding(horizontal = 10.dp, vertical = 10.dp)
             ) {
                 // Messages List (#messages)
                 LazyColumn(
                     state = listState,
                     modifier = Modifier
-                        .weight(1f)
+                        .fillMaxWidth()
+                        .heightIn(max = 240.dp)
+                        .weight(1f, fill = false)
                         .testTag("messages_list"),
                     contentPadding = PaddingValues(vertical = 4.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -245,7 +250,7 @@ fun VesperaChatScreen(
                             onSpeakAgain = { viewModel.speakMessage(message.text) },
                             onCopy = {
                                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                val clip = ClipData.newPlainText("Vespera", message.text)
+                                val clip = ClipData.newPlainText("Hinata", message.text)
                                 clipboard.setPrimaryClip(clip)
                                 Toast.makeText(context, "Copied!", Toast.LENGTH_SHORT).show()
                             }
@@ -254,7 +259,7 @@ fun VesperaChatScreen(
 
                     if (isLoading) {
                         item {
-                            VesperaTypingIndicator()
+                            HinataTypingIndicator()
                         }
                     }
                 }
@@ -275,21 +280,21 @@ fun VesperaChatScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(bottom = 6.dp)
-                            .background(CardSurface, RoundedCornerShape(12.dp))
-                            .border(1.dp, BorderViolet, RoundedCornerShape(12.dp))
+                            .background(Color(0x1AFFFFFF), RoundedCornerShape(12.dp))
+                            .border(1.dp, Color(0x22FFFFFF), RoundedCornerShape(12.dp))
                             .padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
                         AsyncImage(
                             model = selectedImageUri,
-                            contentDescription = "Selected Image",
+                            contentDescription = "Selected Photo",
                             modifier = Modifier
                                 .size(40.dp)
                                 .clip(RoundedCornerShape(8.dp))
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "📷 Image attached for Vespera",
-                            style = MaterialTheme.typography.bodySmall.copy(color = SoftLavender),
+                            text = "📷 Photo attached for Hinata",
+                            style = MaterialTheme.typography.bodySmall.copy(color = IosBlue),
                             modifier = Modifier.weight(1f)
                         )
                         IconButton(
@@ -299,21 +304,21 @@ fun VesperaChatScreen(
                             Icon(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = "Remove photo",
-                                tint = SoftLavender
+                                tint = Color.White
                             )
                         }
                     }
                 }
 
-                // Controls Row (#controls)
+                // Input Controls (#controls)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 2.dp),
+                        .padding(horizontal = 2.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Image / Camera button (.btn-icon)
+                    // Image / Camera button (.icon-btn)
                     IconButton(
                         onClick = {
                             photoPickerLauncher.launch(
@@ -321,17 +326,16 @@ fun VesperaChatScreen(
                             )
                         },
                         modifier = Modifier
-                            .size(46.dp)
+                            .size(44.dp)
                             .clip(CircleShape)
-                            .background(TopBarBorder)
-                            .border(1.dp, BorderViolet, CircleShape)
+                            .background(Color(0x0FFFFFFF))
                             .testTag("camera_button")
                     ) {
                         Icon(
                             imageVector = Icons.Default.CameraAlt,
                             contentDescription = "Attach image",
-                            tint = TextPrimary,
-                            modifier = Modifier.size(20.dp)
+                            tint = IosBlue,
+                            modifier = Modifier.size(22.dp)
                         )
                     }
 
@@ -341,24 +345,27 @@ fun VesperaChatScreen(
                         onValueChange = { inputText = it },
                         placeholder = {
                             Text(
-                                text = stringResource(R.string.input_placeholder),
-                                style = MaterialTheme.typography.bodyMedium.copy(color = TextHint)
+                                text = "Ask Hinata anything...",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    color = Color(0x66FFFFFF),
+                                    fontSize = 15.sp
+                                )
                             )
                         },
                         colors = TextFieldDefaults.colors(
-                            focusedContainerColor = CardSurface,
-                            unfocusedContainerColor = CardSurface,
+                            focusedContainerColor = Color(0x0AFFFFFF),
+                            unfocusedContainerColor = Color(0x0AFFFFFF),
                             focusedTextColor = TextPrimary,
                             unfocusedTextColor = TextPrimary,
-                            cursorColor = SoftLavender,
-                            focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-                            unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent
+                            cursorColor = IosBlue,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent
                         ),
                         shape = RoundedCornerShape(25.dp),
                         modifier = Modifier
                             .weight(1f)
                             .heightIn(min = 46.dp)
-                            .border(1.dp, BorderViolet, RoundedCornerShape(25.dp))
+                            .border(1.dp, Color(0x14FFFFFF), RoundedCornerShape(25.dp))
                             .testTag("userInput"),
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
@@ -381,19 +388,19 @@ fun VesperaChatScreen(
                             }
                         },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = SoftLavender,
-                            contentColor = DeepMidnight
+                            containerColor = IosBlue,
+                            contentColor = Color.White
                         ),
                         shape = RoundedCornerShape(25.dp),
-                        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 12.dp),
+                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
                         modifier = Modifier
                             .height(46.dp)
                             .testTag("send_button")
                     ) {
                         Text(
-                            text = stringResource(R.string.send),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
+                            text = "Send",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 15.sp
                         )
                     }
                 }
@@ -403,7 +410,7 @@ fun VesperaChatScreen(
 
     // Settings Modal (#settings-modal)
     if (showSettingsModal) {
-        VesperaSettingsModal(
+        IosSettingsModal(
             currentApiKey = customApiKey,
             currentLanguage = selectedLanguage,
             currentPitch = voicePitch,
@@ -425,9 +432,9 @@ fun VesperaChatScreen(
     if (showClearConfirmDialog) {
         AlertDialog(
             onDismissRequest = { showClearConfirmDialog = false },
-            title = { Text("Clear Chat?", color = TextPrimary) },
-            text = { Text("Kya aap Vespera ke saath conversation history delete karna chahte hain?", color = TextSecondary) },
-            containerColor = DarkSurface,
+            title = { Text("Clear Chat?", color = TextPrimary, fontWeight = FontWeight.Bold) },
+            text = { Text("Kya aap Hinata ke saath chat history reset karna chahte hain?", color = TextSecondary) },
+            containerColor = Color(0xFF1C1C1E),
             confirmButton = {
                 Button(
                     onClick = {
@@ -441,7 +448,7 @@ fun VesperaChatScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showClearConfirmDialog = false }) {
-                    Text("Cancel", color = SoftLavender)
+                    Text("Cancel", color = IosBlue)
                 }
             }
         )
@@ -449,10 +456,10 @@ fun VesperaChatScreen(
 }
 
 /**
- * Top Bar matching HTML #top-bar
+ * Top Bar matching HTML #top-bar with iOS Glassmorphism
  */
 @Composable
-private fun VesperaTopBar(
+private fun IosTopBar(
     onOpenSettings: () -> Unit,
     onClearChat: () -> Unit
 ) {
@@ -461,17 +468,17 @@ private fun VesperaTopBar(
             .fillMaxWidth()
             .background(TopBarBg)
             .border(width = 1.dp, color = TopBarBorder)
-            .padding(horizontal = 15.dp, vertical = 10.dp),
+            .padding(horizontal = 18.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        // Title: Vespera v1.1 (Hinata Persona)
+        // Title: Hinata v1.2
         Text(
-            text = "Vespera v1.1 (Hinata Persona)",
+            text = "Hinata v1.2",
             style = MaterialTheme.typography.titleMedium.copy(
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = TopBarTitle
+                fontSize = 17.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White
             )
         )
 
@@ -479,27 +486,23 @@ private fun VesperaTopBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Settings button (.btn-icon with "⚙️ Settings")
+            // iOS button (.ios-btn with "Settings")
             Surface(
-                color = TopBarBorder,
-                shape = RoundedCornerShape(12.dp),
+                color = Color(0x0FFFFFFF),
+                shape = RoundedCornerShape(14.dp),
                 modifier = Modifier
                     .clickable { onOpenSettings() }
                     .testTag("settings_button")
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                ) {
-                    Text(
-                        text = "⚙️ Settings",
-                        style = MaterialTheme.typography.labelMedium.copy(
-                            color = TextPrimary,
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 13.sp
-                        )
-                    )
-                }
+                Text(
+                    text = "Settings",
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        color = IosBlue,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 14.sp
+                    ),
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                )
             }
 
             // Clear chat icon button
@@ -508,13 +511,13 @@ private fun VesperaTopBar(
                 modifier = Modifier
                     .size(32.dp)
                     .clip(CircleShape)
-                    .background(TopBarBorder)
+                    .background(Color(0x0FFFFFFF))
                     .testTag("clear_chat_button")
             ) {
                 Icon(
                     imageVector = Icons.Default.DeleteSweep,
                     contentDescription = "Clear Conversation",
-                    tint = SoftLavender,
+                    tint = Color(0xB3FFFFFF),
                     modifier = Modifier.size(16.dp)
                 )
             }
@@ -523,7 +526,7 @@ private fun VesperaTopBar(
 }
 
 /**
- * Chat Message Item with v1.1 Hinata / User Bubble styling
+ * Chat Message Item with iOS Dark Water Bubble styling
  */
 @Composable
 private fun ChatMessageItem(
@@ -539,27 +542,27 @@ private fun ChatMessageItem(
     ) {
         Box(
             modifier = Modifier
-                .widthIn(max = 300.dp)
+                .widthIn(max = 290.dp)
                 .clip(
                     RoundedCornerShape(
-                        topStart = 14.dp,
-                        topEnd = 14.dp,
-                        bottomStart = if (isUser) 14.dp else 2.dp,
-                        bottomEnd = if (isUser) 2.dp else 14.dp
+                        topStart = 18.dp,
+                        topEnd = 18.dp,
+                        bottomStart = if (isUser) 18.dp else 4.dp,
+                        bottomEnd = if (isUser) 4.dp else 18.dp
                     )
                 )
-                .background(if (isUser) UserBubble else AiBubble)
+                .background(if (isUser) IosBlue else Color(0x10FFFFFF))
                 .border(
                     width = if (isUser) 0.dp else 1.dp,
-                    color = if (isUser) androidx.compose.ui.graphics.Color.Transparent else BorderViolet,
+                    color = if (isUser) Color.Transparent else Color(0x0DFFFFFF),
                     shape = RoundedCornerShape(
-                        topStart = 14.dp,
-                        topEnd = 14.dp,
-                        bottomStart = if (isUser) 14.dp else 2.dp,
-                        bottomEnd = if (isUser) 2.dp else 14.dp
+                        topStart = 18.dp,
+                        topEnd = 18.dp,
+                        bottomStart = if (isUser) 18.dp else 4.dp,
+                        bottomEnd = if (isUser) 4.dp else 18.dp
                     )
                 )
-                .padding(horizontal = 14.dp, vertical = 10.dp)
+                .padding(horizontal = 15.dp, vertical = 10.dp)
         ) {
             Column {
                 if (!message.imageBase64.isNullOrBlank()) {
@@ -586,11 +589,11 @@ private fun ChatMessageItem(
                 }
 
                 Text(
-                    text = message.text,
+                    text = if (isUser) message.text else "Hinata: ${message.text}",
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        color = TextPrimary,
-                        fontSize = 14.sp,
-                        lineHeight = 20.sp
+                        color = if (isUser) Color.White else Color(0xE6FFFFFF),
+                        fontSize = 15.sp,
+                        lineHeight = 21.sp
                     )
                 )
 
@@ -607,8 +610,8 @@ private fun ChatMessageItem(
                             Icon(
                                 imageVector = Icons.Default.VolumeUp,
                                 contentDescription = "Listen again",
-                                tint = SoftLavender.copy(alpha = 0.85f),
-                                modifier = Modifier.size(14.dp)
+                                tint = IosBlue.copy(alpha = 0.9f),
+                                modifier = Modifier.size(15.dp)
                             )
                         }
                         Spacer(modifier = Modifier.width(4.dp))
@@ -619,8 +622,8 @@ private fun ChatMessageItem(
                             Icon(
                                 imageVector = Icons.Default.ContentCopy,
                                 contentDescription = "Copy text",
-                                tint = SoftLavender.copy(alpha = 0.85f),
-                                modifier = Modifier.size(13.dp)
+                                tint = Color(0x99FFFFFF),
+                                modifier = Modifier.size(14.dp)
                             )
                         }
                     }
@@ -634,7 +637,7 @@ private fun ChatMessageItem(
  * Animated typing indicator
  */
 @Composable
-private fun VesperaTypingIndicator() {
+private fun HinataTypingIndicator() {
     val infiniteTransition = rememberInfiniteTransition(label = "TypingDots")
     val dotScale by infiniteTransition.animateFloat(
         initialValue = 0.6f,
@@ -649,14 +652,14 @@ private fun VesperaTypingIndicator() {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
-            .clip(RoundedCornerShape(14.dp))
-            .background(AiBubble)
-            .border(1.dp, BorderViolet, RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(18.dp))
+            .background(Color(0x10FFFFFF))
+            .border(1.dp, Color(0x0DFFFFFF), RoundedCornerShape(18.dp))
             .padding(horizontal = 14.dp, vertical = 8.dp)
     ) {
         Text(
-            text = "Vespera (Hinata) is thinking…",
-            style = MaterialTheme.typography.bodySmall.copy(color = SoftLavender, fontSize = 12.sp)
+            text = "Hinata is thinking…",
+            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xB3FFFFFF), fontSize = 13.sp)
         )
         Spacer(modifier = Modifier.width(6.dp))
         Box(
@@ -664,7 +667,7 @@ private fun VesperaTypingIndicator() {
                 .size(6.dp)
                 .scale(dotScale)
                 .clip(CircleShape)
-                .background(GlowingCyan)
+                .background(IosBlue)
         )
     }
 }
@@ -675,11 +678,11 @@ private fun VesperaTypingIndicator() {
 @Composable
 private fun QuickPromptChips(onSelectPrompt: (String) -> Unit) {
     val prompts = listOf(
-        "Hello Hinata! 🌸",
-        "Kaise ho aap?",
-        "Ek pyara sa Hinglish joke sunao! 😂",
-        "Kuch romantic shayari bolo ✨",
-        "Mujhe motivate karo! 💪"
+        "M-Main Hinata hoon... 🌸",
+        "Aap kaise ho?",
+        "Ek pyara sa joke sunao! 😂",
+        "Kuch sweet bolo na ✨",
+        "Mujhse baat karo"
     )
 
     LazyRow(
@@ -689,18 +692,18 @@ private fun QuickPromptChips(onSelectPrompt: (String) -> Unit) {
     ) {
         items(prompts) { prompt ->
             Surface(
-                color = CardSurface,
+                color = Color(0x0FFFFFFF),
                 shape = RoundedCornerShape(16.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, BorderViolet.copy(alpha = 0.7f)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x14FFFFFF)),
                 modifier = Modifier.clickable { onSelectPrompt(prompt) }
             ) {
                 Text(
                     text = prompt,
                     style = MaterialTheme.typography.labelSmall.copy(
-                        color = SoftLavender,
-                        fontSize = 11.sp
+                        color = Color(0xE6FFFFFF),
+                        fontSize = 12.sp
                     ),
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                 )
             }
         }
@@ -708,10 +711,10 @@ private fun QuickPromptChips(onSelectPrompt: (String) -> Unit) {
 }
 
 /**
- * Settings Modal (#settings-modal) matching the v1.1 prototype
+ * iOS Fullscreen Settings Modal (#settings-modal)
  */
 @Composable
-private fun VesperaSettingsModal(
+private fun IosSettingsModal(
     currentApiKey: String,
     currentLanguage: String,
     currentPitch: Float,
@@ -729,38 +732,67 @@ private fun VesperaSettingsModal(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = CardSurface,
-        modifier = Modifier.fillMaxWidth(0.95f),
+        containerColor = Color(0xFF010101),
+        modifier = Modifier.fillMaxWidth(0.96f),
         title = {
-            Text(
-                text = "Settings",
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = SoftLavender
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Settings",
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
                 )
-            )
+                // iOS Done button
+                Surface(
+                    color = Color(0x0FFFFFFF),
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.clickable {
+                        onSave(apiKeyInput, selectedLang, pitchSlider, speedSlider)
+                    }
+                ) {
+                    Text(
+                        text = "Done",
+                        style = MaterialTheme.typography.labelLarge.copy(
+                            color = IosBlue,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 15.sp
+                        ),
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                    )
+                }
+            }
         },
         text = {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Setting Item: Gemini API Key
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                // Setting Item: GEMINI API KEY
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Gemini API Key",
-                            style = MaterialTheme.typography.labelMedium.copy(color = TextSecondary, fontSize = 12.sp)
+                            text = "GEMINI API KEY",
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                color = Color(0x99FFFFFF),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
                         )
                         Text(
                             text = if (isKeyVisible) "Hide" else "Show",
-                            style = MaterialTheme.typography.labelSmall.copy(color = SoftLavender),
+                            style = MaterialTheme.typography.labelSmall.copy(color = IosBlue),
                             modifier = Modifier.clickable { isKeyVisible = !isKeyVisible }
                         )
                     }
@@ -768,59 +800,61 @@ private fun VesperaSettingsModal(
                         value = apiKeyInput,
                         onValueChange = { apiKeyInput = it },
                         placeholder = {
-                            Text("Paste API Key here", color = TextHint, fontSize = 13.sp)
+                            Text("Paste Gemini Key", color = Color(0x66FFFFFF), fontSize = 15.sp)
                         },
                         visualTransformation = if (isKeyVisible) VisualTransformation.None else PasswordVisualTransformation(),
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = ModalInputBg,
-                            unfocusedContainerColor = ModalInputBg,
+                            focusedContainerColor = Color(0x0AFFFFFF),
+                            unfocusedContainerColor = Color(0x0AFFFFFF),
                             focusedTextColor = TextPrimary,
                             unfocusedTextColor = TextPrimary,
-                            focusedBorderColor = SoftLavender,
-                            unfocusedBorderColor = BorderViolet
+                            focusedBorderColor = IosBlue,
+                            unfocusedBorderColor = Color(0x14FFFFFF)
                         ),
-                        shape = RoundedCornerShape(8.dp),
+                        shape = RoundedCornerShape(12.dp),
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("apiKey")
                     )
                 }
 
-                // Setting Item: Response Language
+                // Setting Item: RESPONSE LANGUAGE
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
-                        text = "Response Language",
-                        style = MaterialTheme.typography.labelMedium.copy(color = TextSecondary, fontSize = 12.sp)
+                        text = "RESPONSE LANGUAGE",
+                        style = MaterialTheme.typography.labelMedium.copy(
+                            color = Color(0x99FFFFFF),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
                     )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         languages.forEach { lang ->
-                            val isSelected = selectedLang.equals(lang, ignoreCase = true) ||
-                                    (lang == "Hindi" && selectedLang.equals("Pure Hindi", ignoreCase = true)) ||
-                                    (lang == "Hinglish" && selectedLang.startsWith("Hinglish", ignoreCase = true))
+                            val isSelected = selectedLang.equals(lang, ignoreCase = true)
 
                             Surface(
-                                color = if (isSelected) NeonPurple else ModalInputBg,
-                                shape = RoundedCornerShape(8.dp),
+                                color = if (isSelected) IosBlue else Color(0x0AFFFFFF),
+                                shape = RoundedCornerShape(10.dp),
                                 border = androidx.compose.foundation.BorderStroke(
                                     1.dp,
-                                    if (isSelected) SoftLavender else BorderViolet
+                                    if (isSelected) IosBlue else Color(0x14FFFFFF)
                                 ),
                                 modifier = Modifier
                                     .weight(1f)
                                     .clickable { selectedLang = lang }
                             ) {
                                 Text(
-                                    text = if (lang == "Hinglish") "Hinglish" else if (lang == "Hindi") "Pure Hindi" else "English",
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        color = if (isSelected) TextPrimary else TextSecondary,
+                                    text = lang,
+                                    style = MaterialTheme.typography.labelMedium.copy(
+                                        color = if (isSelected) Color.White else Color(0xCCFFFFFF),
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                        fontSize = 11.sp
+                                        fontSize = 13.sp
                                     ),
-                                    modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
+                                    modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp),
                                     maxLines = 1
                                 )
                             }
@@ -828,61 +862,83 @@ private fun VesperaSettingsModal(
                     }
                 }
 
-                // Setting Item: Voice Pitch (Hinata Style - High)
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                // Setting Item: Hinata Voice Tone (High Pitch)
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            text = "Voice Pitch (Hinata Style - High)",
-                            style = MaterialTheme.typography.labelMedium.copy(color = TextSecondary, fontSize = 12.sp)
+                            text = "HINATA VOICE TONE (HIGH PITCH)",
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                color = Color(0x99FFFFFF),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
                         )
                         Text(
                             text = String.format(Locale.US, "%.1f", pitchSlider),
-                            style = MaterialTheme.typography.labelMedium.copy(color = SoftLavender, fontWeight = FontWeight.Bold)
+                            style = MaterialTheme.typography.labelMedium.copy(color = IosBlue, fontWeight = FontWeight.Bold)
                         )
                     }
                     Slider(
                         value = pitchSlider,
                         onValueChange = { pitchSlider = it },
-                        valueRange = 1.0f..2.0f,
-                        steps = 9,
+                        valueRange = 1.1f..1.9f,
+                        steps = 7,
                         colors = SliderDefaults.colors(
-                            thumbColor = SoftLavender,
-                            activeTrackColor = NeonPurple,
-                            inactiveTrackColor = ModalInputBg
+                            thumbColor = IosBlue,
+                            activeTrackColor = IosBlue,
+                            inactiveTrackColor = Color(0x14FFFFFF)
                         ),
                         modifier = Modifier.testTag("voicePitch")
                     )
+                    Text(
+                        text = "Soft & Mature tone: ~1.6",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = Color(0x66FFFFFF),
+                            fontSize = 12.sp
+                        )
+                    )
                 }
 
-                // Setting Item: Voice Speed
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                // Setting Item: Hinata Voice Speed (Slow & Calm)
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            text = "Voice Speed",
-                            style = MaterialTheme.typography.labelMedium.copy(color = TextSecondary, fontSize = 12.sp)
+                            text = "HINATA VOICE SPEED (SLOW & CALM)",
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                color = Color(0x99FFFFFF),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
                         )
                         Text(
                             text = String.format(Locale.US, "%.2f", speedSlider),
-                            style = MaterialTheme.typography.labelMedium.copy(color = SoftLavender, fontWeight = FontWeight.Bold)
+                            style = MaterialTheme.typography.labelMedium.copy(color = IosBlue, fontWeight = FontWeight.Bold)
                         )
                     }
                     Slider(
                         value = speedSlider,
                         onValueChange = { speedSlider = it },
-                        valueRange = 0.7f..1.3f,
-                        steps = 11,
+                        valueRange = 0.8f..1.2f,
+                        steps = 7,
                         colors = SliderDefaults.colors(
-                            thumbColor = SoftLavender,
-                            activeTrackColor = NeonPurple,
-                            inactiveTrackColor = ModalInputBg
+                            thumbColor = IosBlue,
+                            activeTrackColor = IosBlue,
+                            inactiveTrackColor = Color(0x14FFFFFF)
                         ),
                         modifier = Modifier.testTag("voiceRate")
+                    )
+                    Text(
+                        text = "Calm speech: ~0.95",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = Color(0x66FFFFFF),
+                            fontSize = 12.sp
+                        )
                     )
                 }
             }
@@ -893,8 +949,8 @@ private fun VesperaSettingsModal(
                     onSave(apiKeyInput, selectedLang, pitchSlider, speedSlider)
                 },
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = SoftLavender,
-                    contentColor = DeepMidnight
+                    containerColor = IosBlue,
+                    contentColor = Color.White
                 ),
                 shape = RoundedCornerShape(25.dp),
                 modifier = Modifier
@@ -902,9 +958,9 @@ private fun VesperaSettingsModal(
                     .testTag("save_settings_button")
             ) {
                 Text(
-                    text = "Save & Close",
+                    text = "Save Settings",
                     fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp
+                    fontSize = 15.sp
                 )
             }
         }

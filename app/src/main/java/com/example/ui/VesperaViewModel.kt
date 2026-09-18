@@ -57,7 +57,7 @@ class VesperaViewModel(application: Application) : AndroidViewModel(application)
     private val _selectedLanguage = MutableStateFlow(prefs.getString("response_lang", "Hinglish") ?: "Hinglish")
     val selectedLanguage: StateFlow<String> = _selectedLanguage.asStateFlow()
 
-    private val _voicePitch = MutableStateFlow(prefs.getFloat("voice_pitch", 1.4f))
+    private val _voicePitch = MutableStateFlow(prefs.getFloat("voice_pitch", 1.6f))
     val voicePitch: StateFlow<Float> = _voicePitch.asStateFlow()
 
     private val _voiceSpeed = MutableStateFlow(prefs.getFloat("voice_speed", 0.95f))
@@ -70,7 +70,7 @@ class VesperaViewModel(application: Application) : AndroidViewModel(application)
         speechManager.updateVoiceParameters(_voicePitch.value, _voiceSpeed.value)
         viewModelScope.launch {
             repository.checkAndSeedInitialGreeting(
-                "Hello! Main Vespera hoon... Kaise ho aap?"
+                "M-Main Hinata hoon... Aaj kya baat karni hai?"
             )
         }
     }
@@ -213,7 +213,7 @@ class VesperaViewModel(application: Application) : AndroidViewModel(application)
 
     fun clearHistory() {
         viewModelScope.launch {
-            repository.clearHistory("Hello! Main Vespera hoon... Kaise ho aap?")
+            repository.clearHistory("M-Main Hinata hoon... Aaj kya baat karni hai?")
             speechManager.stop()
         }
     }

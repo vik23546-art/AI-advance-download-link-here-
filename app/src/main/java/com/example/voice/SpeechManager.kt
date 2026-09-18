@@ -37,7 +37,7 @@ class SpeechManager(context: Context) : TextToSpeech.OnInitListener {
     private val coroutineScope = CoroutineScope(Dispatchers.Default)
     private var amplitudeJob: Job? = null
 
-    var voicePitch: Float = 1.4f
+    var voicePitch: Float = 1.6f
     var voiceSpeed: Float = 0.95f
 
     init {
@@ -55,13 +55,14 @@ class SpeechManager(context: Context) : TextToSpeech.OnInitListener {
                 ttsEngine.setLanguage(Locale.getDefault())
             }
 
-            // Find female voice if available (similar to prototype's voice selection)
+            // Find soft/female voice if available (similar to prototype's voice selection)
             try {
                 val availableVoices = ttsEngine.voices
                 if (availableVoices != null) {
                     val femaleVoice = availableVoices.find { voice ->
-                        voice.name.contains("female", ignoreCase = true) ||
                         voice.name.contains("Google hi-IN", ignoreCase = true) ||
+                        voice.name.contains("Samantha", ignoreCase = true) ||
+                        voice.name.contains("female", ignoreCase = true) ||
                         voice.name.contains("Zira", ignoreCase = true)
                     }
                     if (femaleVoice != null) {
