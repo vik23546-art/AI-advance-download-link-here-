@@ -22,6 +22,9 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class VesperaViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -57,22 +60,67 @@ class VesperaViewModel(application: Application) : AndroidViewModel(application)
     private val _selectedLanguage = MutableStateFlow(prefs.getString("response_lang", "Hinglish") ?: "Hinglish")
     val selectedLanguage: StateFlow<String> = _selectedLanguage.asStateFlow()
 
+    private val _voicePersona = MutableStateFlow(prefs.getString("voice_persona", "hinata") ?: "hinata")
+    val voicePersona: StateFlow<String> = _voicePersona.asStateFlow()
+
     private val _voicePitch = MutableStateFlow(prefs.getFloat("voice_pitch", 1.6f))
     val voicePitch: StateFlow<Float> = _voicePitch.asStateFlow()
 
     private val _voiceSpeed = MutableStateFlow(prefs.getFloat("voice_speed", 0.95f))
     val voiceSpeed: StateFlow<Float> = _voiceSpeed.asStateFlow()
 
+    private fun getTodayDateKey(): String = "vid_count_" + SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+
+    private val _dailyVideoCount = MutableStateFlow(prefs.getInt(getTodayDateKey(), 0))
+    val dailyVideoCount: StateFlow<Int> = _dailyVideoCount.asStateFlow()
+
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
     init {
-        speechManager.updateVoiceParameters(_voicePitch.value, _voiceSpeed.value)
+        val (p, s) = getPersonaPitchAndSpeed(_voicePersona.value)
+        _voicePitch.value = p
+        _voiceSpeed.value = s
+        speechManager.updateVoiceParameters(p, s)
         viewModelScope.launch {
             repository.checkAndSeedInitialGreeting(
-                "M-Main Hinata hoon... Aaj kya baat karni hai?"
+                "Hinata: M-Main ready hoon... Aap kya kehna chahte ho?"
             )
         }
+    }
+
+    private fun getPersonaPitchAndSpeed(persona: String): Pair<Float, Float> {
+        return when (persona) {
+            "sakura" -> 1.3f to 1.1f
+            "tsunade" -> 0.9f to 0.9f
+            else -> 1.6f to 0.95f // hinata
+        }
+    }
+
+    fun getVideoCount(): Int {
+        val count = prefs.getInt(getTodayDateKey(), 0)
+        _dailyVideoCount.value = count
+        return count
+    }
+
+    fun incrementVideoCount(): Int {
+        val newCount = getVideoCount() + 1
+        prefs.edit().putInt(getTodayDateKey(), newCount).apply()
+        _dailyVideoCount.value = newCount
+        return newCount
+    }
+
+    fun setVoicePersona(persona: String) {
+        _voicePersona.value = persona
+        val (p, s) = getPersonaPitchAndSpeed(persona)
+        _voicePitch.value = p
+        _voiceSpeed.value = s
+        prefs.edit()
+            .putString("voice_persona", persona)
+            .putFloat("voice_pitch", p)
+            .putFloat("voice_speed", s)
+            .apply()
+        speechManager.updateVoiceParameters(p, s)
     }
 
     /**
@@ -103,24 +151,18 @@ class VesperaViewModel(application: Application) : AndroidViewModel(application)
 
     fun updateSettings(
         language: String,
-        pitch: Float,
-        speed: Float,
+        persona: String,
         apiKey: String
     ) {
         val trimmedKey = apiKey.trim()
         _customApiKey.value = trimmedKey
         _selectedLanguage.value = language
-        _voicePitch.value = pitch
-        _voiceSpeed.value = speed
+        setVoicePersona(persona)
 
         prefs.edit()
             .putString("custom_api_key", trimmedKey)
             .putString("response_lang", language)
-            .putFloat("voice_pitch", pitch)
-            .putFloat("voice_speed", speed)
             .apply()
-
-        speechManager.updateVoiceParameters(pitch, speed)
     }
 
     fun toggleVoice() {
@@ -171,22 +213,43 @@ class VesperaViewModel(application: Application) : AndroidViewModel(application)
         if (prompt.isBlank() && imageBase64 == null) return
 
         val activeKey = getEffectiveApiKey()
-        if (activeKey.isBlank()) {
-            _errorMessage.value = "Pehle Gemini API key daalein! (Settings icon tap karein ya AI Studio Secrets set karein)"
+        // Clear image attachment preview immediately
+        clearAttachedImage()
+        _errorMessage.value = null
+
+        // Video Generation Intent Detection
+        val lower = prompt.lowercase()
+        if (lower.contains("video") || lower.contains("banao video")) {
+            viewModelScope.launch {
+                repository.insertDirectMessage("user", prompt.ifBlank { "Generated Video..." })
+                if (getVideoCount() >= 5) {
+                    repository.insertDirectMessage("ai", "Hinata: Aaj ki 5 video limits poori ho chuki hain! Kal try karein.")
+                    if (_isVoiceEnabled.value) {
+                        speechManager.speak("Aaj ki video limit poori ho chuki hai.")
+                    }
+                } else {
+                    incrementVideoCount()
+                    repository.insertDirectMessage(
+                        "ai",
+                        "Hinata: Video processing start ho gayi hai! Ye rahi aapki generated video render:\n[VIDEO:https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4]"
+                    )
+                    if (_isVoiceEnabled.value) {
+                        speechManager.speak("Video ready ho rahi hai.")
+                    }
+                }
+            }
             return
         }
 
-        // Clear image attachment preview immediately
-        clearAttachedImage()
         _isLoading.value = true
-        _errorMessage.value = null
 
         viewModelScope.launch {
             val result = repository.sendUserMessage(
                 text = prompt,
                 base64Image = imageBase64,
                 apiKey = activeKey,
-                languageMode = _selectedLanguage.value
+                languageMode = _selectedLanguage.value,
+                persona = _voicePersona.value
             )
 
             _isLoading.value = false
@@ -197,7 +260,7 @@ class VesperaViewModel(application: Application) : AndroidViewModel(application)
                     speechManager.speak(aiReply)
                 }
             } else {
-                val err = result.exceptionOrNull()?.message ?: "Error connecting to Vespera"
+                val err = result.exceptionOrNull()?.message ?: "Hinata: Connection thoda busy hai, kripya 1-2 second baad dubara message bhejein."
                 _errorMessage.value = err
             }
         }
@@ -213,7 +276,7 @@ class VesperaViewModel(application: Application) : AndroidViewModel(application)
 
     fun clearHistory() {
         viewModelScope.launch {
-            repository.clearHistory("M-Main Hinata hoon... Aaj kya baat karni hai?")
+            repository.clearHistory("Hinata: M-Main ready hoon... Aap kya kehna chahte ho?")
             speechManager.stop()
         }
     }

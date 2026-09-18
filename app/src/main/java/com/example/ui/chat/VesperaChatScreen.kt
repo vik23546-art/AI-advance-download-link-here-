@@ -5,6 +5,9 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.graphics.BitmapFactory
 import android.util.Base64
+import android.net.Uri
+import android.widget.MediaController
+import android.widget.VideoView
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -45,6 +48,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
@@ -88,6 +92,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.example.R
@@ -101,6 +106,8 @@ import com.example.ui.theme.CardSurface
 import com.example.ui.theme.DarkSurface
 import com.example.ui.theme.DeepMidnight
 import com.example.ui.theme.GlowingCyan
+import com.example.ui.theme.ImagePreviewBg
+import com.example.ui.theme.ImagePreviewText
 import com.example.ui.theme.IosBlue
 import com.example.ui.theme.IosBlueActive
 import com.example.ui.theme.ModalInputBg
@@ -130,8 +137,8 @@ fun VesperaChatScreen(
     val selectedImageUri by viewModel.selectedImageUri.collectAsStateWithLifecycle()
     val customApiKey by viewModel.customApiKey.collectAsStateWithLifecycle()
     val selectedLanguage by viewModel.selectedLanguage.collectAsStateWithLifecycle()
-    val voicePitch by viewModel.voicePitch.collectAsStateWithLifecycle()
-    val voiceSpeed by viewModel.voiceSpeed.collectAsStateWithLifecycle()
+    val voicePersona by viewModel.voicePersona.collectAsStateWithLifecycle()
+    val dailyVideoCount by viewModel.dailyVideoCount.collectAsStateWithLifecycle()
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
 
     var inputText by remember { mutableStateOf("") }
@@ -273,40 +280,36 @@ fun VesperaChatScreen(
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                // Attached Image Preview Bar
+                // Attached Image Preview Bar (#img-preview-bar)
                 if (selectedImageUri != null) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(bottom = 6.dp)
-                            .background(Color(0x1AFFFFFF), RoundedCornerShape(12.dp))
-                            .border(1.dp, Color(0x22FFFFFF), RoundedCornerShape(12.dp))
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                            .padding(bottom = 8.dp)
+                            .background(ImagePreviewBg, RoundedCornerShape(10.dp))
+                            .border(1.dp, IosBlue, RoundedCornerShape(10.dp))
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
                     ) {
-                        AsyncImage(
-                            model = selectedImageUri,
-                            contentDescription = "Selected Photo",
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "📷 Photo attached for Hinata",
-                            style = MaterialTheme.typography.bodySmall.copy(color = IosBlue),
-                            modifier = Modifier.weight(1f)
-                        )
-                        IconButton(
-                            onClick = { viewModel.clearAttachedImage() },
-                            modifier = Modifier.size(28.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Remove photo",
-                                tint = Color.White
+                            text = "📌 Photo Attached (Ready to Send)",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = ImagePreviewText,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
                             )
-                        }
+                        )
+                        Text(
+                            text = "✖",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = ImagePreviewText,
+                                fontSize = 14.sp
+                            ),
+                            modifier = Modifier
+                                .clickable { viewModel.clearAttachedImage() }
+                                .padding(4.dp)
+                        )
                     }
                 }
 
@@ -318,24 +321,26 @@ fun VesperaChatScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Image / Camera button (.icon-btn)
-                    IconButton(
-                        onClick = {
-                            photoPickerLauncher.launch(
-                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                            )
-                        },
+                    // Plus button (.plus-btn)
+                    Box(
+                        contentAlignment = Alignment.Center,
                         modifier = Modifier
-                            .size(44.dp)
+                            .size(42.dp)
                             .clip(CircleShape)
-                            .background(Color(0x0FFFFFFF))
+                            .background(Color(0x1AFFFFFF))
+                            .border(1.dp, Color(0x33FFFFFF), CircleShape)
+                            .clickable {
+                                photoPickerLauncher.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                )
+                            }
                             .testTag("camera_button")
                     ) {
                         Icon(
-                            imageVector = Icons.Default.CameraAlt,
+                            imageVector = Icons.Default.Add,
                             contentDescription = "Attach image",
                             tint = IosBlue,
-                            modifier = Modifier.size(22.dp)
+                            modifier = Modifier.size(24.dp)
                         )
                     }
 
@@ -345,27 +350,26 @@ fun VesperaChatScreen(
                         onValueChange = { inputText = it },
                         placeholder = {
                             Text(
-                                text = "Ask Hinata anything...",
+                                text = "Ask Hinata or generate video...",
                                 style = MaterialTheme.typography.bodyMedium.copy(
                                     color = Color(0x66FFFFFF),
-                                    fontSize = 15.sp
+                                    fontSize = 14.sp
                                 )
                             )
                         },
                         colors = TextFieldDefaults.colors(
-                            focusedContainerColor = Color(0x0AFFFFFF),
-                            unfocusedContainerColor = Color(0x0AFFFFFF),
+                            focusedContainerColor = Color(0x0FFFFFFF),
+                            unfocusedContainerColor = Color(0x0FFFFFFF),
                             focusedTextColor = TextPrimary,
                             unfocusedTextColor = TextPrimary,
                             cursorColor = IosBlue,
                             focusedIndicatorColor = Color.Transparent,
                             unfocusedIndicatorColor = Color.Transparent
                         ),
-                        shape = RoundedCornerShape(25.dp),
+                        shape = RoundedCornerShape(22.dp),
                         modifier = Modifier
                             .weight(1f)
-                            .heightIn(min = 46.dp)
-                            .border(1.dp, Color(0x14FFFFFF), RoundedCornerShape(25.dp))
+                            .heightIn(min = 44.dp)
                             .testTag("userInput"),
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
@@ -391,16 +395,16 @@ fun VesperaChatScreen(
                             containerColor = IosBlue,
                             contentColor = Color.White
                         ),
-                        shape = RoundedCornerShape(25.dp),
-                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
+                        shape = RoundedCornerShape(22.dp),
+                        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 11.dp),
                         modifier = Modifier
-                            .height(46.dp)
+                            .height(44.dp)
                             .testTag("send_button")
                     ) {
                         Text(
                             text = "Send",
                             fontWeight = FontWeight.SemiBold,
-                            fontSize = 15.sp
+                            fontSize = 14.sp
                         )
                     }
                 }
@@ -413,14 +417,13 @@ fun VesperaChatScreen(
         IosSettingsModal(
             currentApiKey = customApiKey,
             currentLanguage = selectedLanguage,
-            currentPitch = voicePitch,
-            currentSpeed = voiceSpeed,
+            currentPersona = voicePersona,
+            dailyVideoCount = dailyVideoCount,
             onDismiss = { showSettingsModal = false },
-            onSave = { apiKey, lang, pitch, speed ->
+            onSave = { apiKey, lang, persona ->
                 viewModel.updateSettings(
                     language = lang,
-                    pitch = pitch,
-                    speed = speed,
+                    persona = persona,
                     apiKey = apiKey
                 )
                 showSettingsModal = false
@@ -468,15 +471,15 @@ private fun IosTopBar(
             .fillMaxWidth()
             .background(TopBarBg)
             .border(width = 1.dp, color = TopBarBorder)
-            .padding(horizontal = 18.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        // Title: Hinata v1.2
+        // Title: Hinata AI v1.3
         Text(
-            text = "Hinata v1.2",
+            text = "Hinata AI v1.3",
             style = MaterialTheme.typography.titleMedium.copy(
-                fontSize = 17.sp,
+                fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = Color.White
             )
@@ -486,20 +489,20 @@ private fun IosTopBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // iOS button (.ios-btn with "Settings")
+            // iOS button (.ios-btn with "⚙️ Settings")
             Surface(
-                color = Color(0x0FFFFFFF),
+                color = Color(0x14FFFFFF),
                 shape = RoundedCornerShape(14.dp),
                 modifier = Modifier
                     .clickable { onOpenSettings() }
                     .testTag("settings_button")
             ) {
                 Text(
-                    text = "Settings",
+                    text = "⚙️ Settings",
                     style = MaterialTheme.typography.labelMedium.copy(
                         color = IosBlue,
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 14.sp
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 13.sp
                     ),
                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
                 )
@@ -526,6 +529,40 @@ private fun IosTopBar(
 }
 
 /**
+ * Video player for generated video responses
+ */
+@Composable
+private fun VideoMessagePlayer(
+    videoUrl: String,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(200.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color.Black)
+            .border(1.dp, Color(0x22FFFFFF), RoundedCornerShape(12.dp))
+    ) {
+        AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = { ctx ->
+                VideoView(ctx).apply {
+                    setVideoURI(Uri.parse(videoUrl))
+                    val controller = MediaController(ctx)
+                    controller.setAnchorView(this)
+                    setMediaController(controller)
+                    setOnPreparedListener { mp ->
+                        mp.isLooping = true
+                        start()
+                    }
+                }
+            }
+        )
+    }
+}
+
+/**
  * Chat Message Item with iOS Dark Water Bubble styling
  */
 @Composable
@@ -535,6 +572,15 @@ private fun ChatMessageItem(
     onCopy: () -> Unit
 ) {
     val isUser = message.sender == "user"
+    val hasVideo = message.text.contains("[VIDEO:")
+    val videoUrl = if (hasVideo) {
+        message.text.substringAfter("[VIDEO:").substringBefore("]")
+    } else null
+    val cleanText = if (hasVideo) {
+        message.text.substringBefore("[VIDEO:").trim()
+    } else {
+        message.text
+    }
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -542,7 +588,7 @@ private fun ChatMessageItem(
     ) {
         Box(
             modifier = Modifier
-                .widthIn(max = 290.dp)
+                .widthIn(max = if (hasVideo) 320.dp else 290.dp)
                 .clip(
                     RoundedCornerShape(
                         topStart = 18.dp,
@@ -588,14 +634,42 @@ private fun ChatMessageItem(
                     }
                 }
 
+                val displayText = if (isUser) {
+                    cleanText
+                } else {
+                    val stripped = cleanText.removePrefix("⚠️").trim()
+                    if (stripped.startsWith("Hinata:") || stripped.startsWith("Sakura:") || stripped.startsWith("Tsunade:")) {
+                        stripped
+                    } else if (cleanText.startsWith("Hinata:") || cleanText.startsWith("Sakura:") || cleanText.startsWith("Tsunade:")) {
+                        cleanText
+                    } else {
+                        "Hinata: $cleanText"
+                    }
+                }
+
                 Text(
-                    text = if (isUser) message.text else "Hinata: ${message.text}",
+                    text = displayText,
                     style = MaterialTheme.typography.bodyMedium.copy(
                         color = if (isUser) Color.White else Color(0xE6FFFFFF),
                         fontSize = 15.sp,
                         lineHeight = 21.sp
                     )
                 )
+
+                // Render video if present
+                if (hasVideo && !videoUrl.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Hinata Rendered Video:",
+                        style = MaterialTheme.typography.labelMedium.copy(
+                            color = IosBlue,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    VideoMessagePlayer(videoUrl = videoUrl)
+                }
 
                 if (!isUser) {
                     Spacer(modifier = Modifier.height(4.dp))
@@ -711,24 +785,28 @@ private fun QuickPromptChips(onSelectPrompt: (String) -> Unit) {
 }
 
 /**
- * iOS Fullscreen Settings Modal (#settings-modal)
+ * iOS Fullscreen Settings Modal (#settings-modal) matching Hinata AI v1.3
  */
 @Composable
 private fun IosSettingsModal(
     currentApiKey: String,
     currentLanguage: String,
-    currentPitch: Float,
-    currentSpeed: Float,
+    currentPersona: String,
+    dailyVideoCount: Int,
     onDismiss: () -> Unit,
-    onSave: (apiKey: String, language: String, pitch: Float, speed: Float) -> Unit
+    onSave: (apiKey: String, language: String, persona: String) -> Unit
 ) {
     var apiKeyInput by remember { mutableStateOf(currentApiKey) }
     var isKeyVisible by remember { mutableStateOf(false) }
     var selectedLang by remember { mutableStateOf(currentLanguage) }
-    var pitchSlider by remember { mutableFloatStateOf(currentPitch) }
-    var speedSlider by remember { mutableFloatStateOf(currentSpeed) }
+    var selectedPersona by remember { mutableStateOf(currentPersona) }
 
     val languages = listOf("Hinglish", "Hindi", "English")
+    val personas = listOf(
+        Triple("hinata", "Hinata", "Shy, Soft & High Pitch"),
+        Triple("sakura", "Sakura", "Energetic & Bold"),
+        Triple("tsunade", "Tsunade", "Mature & Deep")
+    )
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -741,9 +819,9 @@ private fun IosSettingsModal(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Settings",
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        fontSize = 24.sp,
+                    text = "Settings & Customization",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
                     )
@@ -753,7 +831,7 @@ private fun IosSettingsModal(
                     color = Color(0x0FFFFFFF),
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.clickable {
-                        onSave(apiKeyInput, selectedLang, pitchSlider, speedSlider)
+                        onSave(apiKeyInput, selectedLang, selectedPersona)
                     }
                 ) {
                     Text(
@@ -773,7 +851,7 @@ private fun IosSettingsModal(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 // Setting Item: GEMINI API KEY
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -786,7 +864,7 @@ private fun IosSettingsModal(
                             text = "GEMINI API KEY",
                             style = MaterialTheme.typography.labelMedium.copy(
                                 color = Color(0x99FFFFFF),
-                                fontSize = 13.sp,
+                                fontSize = 12.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
                         )
@@ -800,7 +878,7 @@ private fun IosSettingsModal(
                         value = apiKeyInput,
                         onValueChange = { apiKeyInput = it },
                         placeholder = {
-                            Text("Paste Gemini Key", color = Color(0x66FFFFFF), fontSize = 15.sp)
+                            Text("Paste Gemini API Key", color = Color(0x66FFFFFF), fontSize = 14.sp)
                         },
                         visualTransformation = if (isKeyVisible) VisualTransformation.None else PasswordVisualTransformation(),
                         singleLine = true,
@@ -819,13 +897,77 @@ private fun IosSettingsModal(
                     )
                 }
 
+                // Setting Item: AI GIRL VOICE CHARACTER
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "AI GIRL VOICE CHARACTER",
+                        style = MaterialTheme.typography.labelMedium.copy(
+                            color = Color(0x99FFFFFF),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        personas.forEach { (key, name, desc) ->
+                            val isSelected = selectedPersona.equals(key, ignoreCase = true)
+                            Surface(
+                                color = if (isSelected) IosBlue.copy(alpha = 0.25f) else Color(0x0AFFFFFF),
+                                shape = RoundedCornerShape(12.dp),
+                                border = androidx.compose.foundation.BorderStroke(
+                                    1.dp,
+                                    if (isSelected) IosBlue else Color(0x14FFFFFF)
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { selectedPersona = key }
+                                    .testTag("persona_$key")
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column {
+                                        Text(
+                                            text = name,
+                                            style = MaterialTheme.typography.bodyMedium.copy(
+                                                color = if (isSelected) Color.White else Color(0xCCFFFFFF),
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                fontSize = 14.sp
+                                            )
+                                        )
+                                        Text(
+                                            text = desc,
+                                            style = MaterialTheme.typography.bodySmall.copy(
+                                                color = if (isSelected) IosBlueActive else Color(0x88FFFFFF),
+                                                fontSize = 11.sp
+                                            )
+                                        )
+                                    }
+                                    if (isSelected) {
+                                        Text(
+                                            text = "✓",
+                                            style = MaterialTheme.typography.bodyMedium.copy(
+                                                color = IosBlue,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // Setting Item: RESPONSE LANGUAGE
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
                         text = "RESPONSE LANGUAGE",
                         style = MaterialTheme.typography.labelMedium.copy(
                             color = Color(0x99FFFFFF),
-                            fontSize = 13.sp,
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold
                         )
                     )
@@ -862,91 +1004,55 @@ private fun IosSettingsModal(
                     }
                 }
 
-                // Setting Item: Hinata Voice Tone (High Pitch)
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "HINATA VOICE TONE (HIGH PITCH)",
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                color = Color(0x99FFFFFF),
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        )
-                        Text(
-                            text = String.format(Locale.US, "%.1f", pitchSlider),
-                            style = MaterialTheme.typography.labelMedium.copy(color = IosBlue, fontWeight = FontWeight.Bold)
-                        )
-                    }
-                    Slider(
-                        value = pitchSlider,
-                        onValueChange = { pitchSlider = it },
-                        valueRange = 1.1f..1.9f,
-                        steps = 7,
-                        colors = SliderDefaults.colors(
-                            thumbColor = IosBlue,
-                            activeTrackColor = IosBlue,
-                            inactiveTrackColor = Color(0x14FFFFFF)
-                        ),
-                        modifier = Modifier.testTag("voicePitch")
-                    )
+                // Setting Item: DAILY VIDEO LIMIT TRACKER
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
-                        text = "Soft & Mature tone: ~1.6",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            color = Color(0x66FFFFFF),
-                            fontSize = 12.sp
+                        text = "DAILY VIDEO LIMIT TRACKER",
+                        style = MaterialTheme.typography.labelMedium.copy(
+                            color = Color(0x99FFFFFF),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
                         )
                     )
-                }
-
-                // Setting Item: Hinata Voice Speed (Slow & Calm)
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                    Surface(
+                        color = Color(0x0AFFFFFF),
+                        shape = RoundedCornerShape(12.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x14FFFFFF)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("videoCountDisplay")
                     ) {
-                        Text(
-                            text = "HINATA VOICE SPEED (SLOW & CALM)",
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                color = Color(0x99FFFFFF),
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "$dailyVideoCount / 5 Videos Used Today",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    color = if (dailyVideoCount >= 5) AccentPink else IosBlue,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 14.sp
+                                )
                             )
-                        )
-                        Text(
-                            text = String.format(Locale.US, "%.2f", speedSlider),
-                            style = MaterialTheme.typography.labelMedium.copy(color = IosBlue, fontWeight = FontWeight.Bold)
-                        )
+                            Text(
+                                text = if (dailyVideoCount >= 5) "Limit Reached" else "${5 - dailyVideoCount} left",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = Color(0x88FFFFFF),
+                                    fontSize = 12.sp
+                                )
+                            )
+                        }
                     }
-                    Slider(
-                        value = speedSlider,
-                        onValueChange = { speedSlider = it },
-                        valueRange = 0.8f..1.2f,
-                        steps = 7,
-                        colors = SliderDefaults.colors(
-                            thumbColor = IosBlue,
-                            activeTrackColor = IosBlue,
-                            inactiveTrackColor = Color(0x14FFFFFF)
-                        ),
-                        modifier = Modifier.testTag("voiceRate")
-                    )
-                    Text(
-                        text = "Calm speech: ~0.95",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            color = Color(0x66FFFFFF),
-                            fontSize = 12.sp
-                        )
-                    )
                 }
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    onSave(apiKeyInput, selectedLang, pitchSlider, speedSlider)
+                    onSave(apiKeyInput, selectedLang, selectedPersona)
                 },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = IosBlue,

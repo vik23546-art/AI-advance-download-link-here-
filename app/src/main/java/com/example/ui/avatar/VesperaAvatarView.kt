@@ -66,11 +66,13 @@ import com.example.ui.theme.BorderViolet
 import com.example.ui.theme.CardSurface
 import com.example.ui.theme.DeepMidnight
 import com.example.ui.theme.GlowingCyan
+import com.example.ui.theme.MouthPinkRed
 import com.example.ui.theme.NeonPurple
 import com.example.ui.theme.SoftLavender
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
 import com.example.ui.theme.WaterRadialCenter
+import com.example.ui.theme.WireframePurple
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -403,7 +405,7 @@ private fun WireframeSphereStage(
         // Draw radial cyber glow
         drawCircle(
             brush = Brush.radialGradient(
-                colors = listOf(NeonPurple.copy(alpha = 0.4f), Color.Transparent),
+                colors = listOf(WireframePurple.copy(alpha = 0.4f), Color.Transparent),
                 center = Offset(centerX, centerY),
                 radius = radius * 1.3f
             ),
@@ -411,21 +413,21 @@ private fun WireframeSphereStage(
             center = Offset(centerX, centerY)
         )
 
-        // Draw wireframe latitude circles
+        // Draw wireframe latitude circles (#5856d6)
         val latitudeLines = 7
         for (i in 1..latitudeLines) {
             val latFraction = i.toFloat() / (latitudeLines + 1)
             val yOffset = (latFraction - 0.5f) * 2f * radius
             val rAtY = kotlin.math.sqrt((radius * radius - yOffset * yOffset).coerceAtLeast(0f))
             drawOval(
-                color = SoftLavender.copy(alpha = 0.45f),
+                color = WireframePurple.copy(alpha = 0.55f),
                 topLeft = Offset(centerX - rAtY, centerY + yOffset - (rAtY * 0.28f)),
                 size = Size(rAtY * 2f, rAtY * 0.56f),
                 style = Stroke(width = 1.2.dp.toPx())
             )
         }
 
-        // Draw wireframe longitude rotating ellipses
+        // Draw wireframe longitude rotating ellipses (#5856d6)
         val rotRad = (rotation * PI / 180.0).toFloat()
         val numMeridians = 6
         for (m in 0 until numMeridians) {
@@ -433,14 +435,14 @@ private fun WireframeSphereStage(
             val cosA = cos(angle.toDouble()).toFloat()
             val width = (radius * cosA).coerceAtLeast(-radius)
             drawOval(
-                color = GlowingCyan.copy(alpha = 0.55f),
+                color = WireframePurple.copy(alpha = 0.65f),
                 topLeft = Offset(centerX - kotlin.math.abs(width), centerY - radius),
                 size = Size(kotlin.math.abs(width) * 2f, radius * 2f),
                 style = Stroke(width = 1.3.dp.toPx())
             )
         }
 
-        // 3D Mouth mesh (Three.js: BoxGeometry with mouth.scale.y)
+        // 3D Mouth mesh (Three.js: BoxGeometry with mouthMat: color 0xff2d55)
         val mouthScaleY = if (isSpeaking) {
             (1f + (audioAmplitude * 2.8f) + (sin(rotation * 0.3) * 0.6).toFloat()).coerceIn(1f, 3.8f)
         } else {
@@ -452,9 +454,9 @@ private fun WireframeSphereStage(
         val currentMouthHeight = mouthBaseHeight * mouthScaleY
         val mouthY = centerY + (radius * 0.45f)
 
-        // Mouth glow
+        // Mouth mesh (#ff2d55)
         drawRoundRect(
-            color = AccentCoral,
+            color = MouthPinkRed,
             topLeft = Offset(centerX - (mouthWidth / 2f), mouthY - (currentMouthHeight / 2f)),
             size = Size(mouthWidth, currentMouthHeight),
             cornerRadius = androidx.compose.ui.geometry.CornerRadius(currentMouthHeight / 2f),
@@ -464,12 +466,12 @@ private fun WireframeSphereStage(
         val eyeSpacing = radius * 0.42f
         val eyeY = centerY - (radius * 0.2f)
         drawCircle(
-            color = GlowingCyan,
+            color = WireframePurple,
             radius = 4.dp.toPx(),
             center = Offset(centerX - eyeSpacing, eyeY)
         )
         drawCircle(
-            color = GlowingCyan,
+            color = WireframePurple,
             radius = 4.dp.toPx(),
             center = Offset(centerX + eyeSpacing, eyeY)
         )

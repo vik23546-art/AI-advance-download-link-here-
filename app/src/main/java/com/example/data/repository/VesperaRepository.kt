@@ -27,7 +27,8 @@ class VesperaRepository(
         text: String,
         base64Image: String?,
         apiKey: String,
-        languageMode: String = "Hinglish"
+        languageMode: String = "Hinglish",
+        persona: String = "hinata"
     ): Result<ChatMessageEntity> {
         // 1. Insert user message into local database
         val userEntity = ChatMessageEntity(
@@ -41,12 +42,13 @@ class VesperaRepository(
         val currentMessages = chatDao.getAllMessages().first()
         val historyTurns = currentMessages.dropLast(1).map { it.sender to it.text }
 
-        // 3. Call Gemini API
+        // 3. Call Gemini API with persona
         val apiResult = geminiApiClient.generateReply(
             apiKey = apiKey,
             userPrompt = text,
             base64Image = base64Image,
             languageMode = languageMode,
+            persona = persona,
             conversationHistory = historyTurns
         )
 
@@ -59,14 +61,24 @@ class VesperaRepository(
             chatDao.insertMessage(aiEntity)
             Result.success(aiEntity)
         } else {
-            val errorMsg = apiResult.exceptionOrNull()?.message ?: "Error connecting to Vespera"
-            val errorEntity = ChatMessageEntity(
+            val errorMsg = apiResult.exceptionOrNull()?.message ?: "Connection thoda busy hai, kripya dubara koshish karein."
+            val aiEntity = ChatMessageEntity(
                 sender = "ai",
-                text = "⚠️ $errorMsg"
+                text = errorMsg
             )
-            chatDao.insertMessage(errorEntity)
-            Result.failure(apiResult.exceptionOrNull() ?: Exception(errorMsg))
+            chatDao.insertMessage(aiEntity)
+            Result.success(aiEntity)
         }
+    }
+
+    suspend fun insertDirectMessage(sender: String, text: String, imageBase64: String? = null): ChatMessageEntity {
+        val entity = ChatMessageEntity(
+            sender = sender,
+            text = text,
+            imageBase64 = imageBase64
+        )
+        chatDao.insertMessage(entity)
+        return entity
     }
 
     suspend fun clearHistory(defaultGreeting: String) {

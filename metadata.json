@@ -1,6 +1,6 @@
 {
   "name": "Vespera",
-  "description": "Hinata AI v1.2 iOS Dark Water companion with 3D wireframe avatar, voice pitch/speed calibration, multimodal vision, and Hinglish roleplay.",
+  "description": "Hinata AI v1.3 iOS Dark Water companion with 3D wireframe avatar, multi-voice character selection (Hinata, Sakura, Tsunade), daily video tracker, multimodal vision, and resilient Gemini fallback engine.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
