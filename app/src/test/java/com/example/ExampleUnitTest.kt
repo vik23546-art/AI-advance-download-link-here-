@@ -45,6 +45,13 @@ class ExampleUnitTest {
 
   @Test
   fun testInCharacterFallbackResponses() {
+    val romanticReply = com.example.data.remote.GeminiApiClient.getInCharacterFallbackResponse("kaise ho", "real_romantic")
+    assertTrue(romanticReply.startsWith("Hinata:"))
+    assertTrue(romanticReply.contains("Babu") || romanticReply.contains("Jaan"))
+
+    val boldReply = com.example.data.remote.GeminiApiClient.getInCharacterFallbackResponse("joke sunao", "bold_girl")
+    assertTrue(boldReply.startsWith("Hinata:"))
+
     val hinataReply = com.example.data.remote.GeminiApiClient.getInCharacterFallbackResponse("joke sunao", "hinata")
     assertTrue(hinataReply.startsWith("Hinata:"))
 

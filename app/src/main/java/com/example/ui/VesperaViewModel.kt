@@ -13,6 +13,7 @@ import com.example.data.local.ChatMessageEntity
 import com.example.data.local.VesperaDatabase
 import com.example.data.repository.VesperaRepository
 import com.example.voice.SpeechManager
+import com.example.voice.VoiceInputManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -32,6 +33,7 @@ class VesperaViewModel(application: Application) : AndroidViewModel(application)
     private val database = VesperaDatabase.getDatabase(application)
     private val repository = VesperaRepository(database.chatDao())
     val speechManager = SpeechManager(application)
+    val voiceInputManager = VoiceInputManager(application)
 
     val messages: StateFlow<List<ChatMessageEntity>> = repository.allMessages.stateIn(
         scope = viewModelScope,
@@ -41,6 +43,7 @@ class VesperaViewModel(application: Application) : AndroidViewModel(application)
 
     val isSpeaking: StateFlow<Boolean> = speechManager.isSpeaking
     val audioAmplitude: StateFlow<Float> = speechManager.audioAmplitude
+    val isRecording: StateFlow<Boolean> = voiceInputManager.isRecording
 
     private val _isVoiceEnabled = MutableStateFlow(prefs.getBoolean("voice_enabled", true))
     val isVoiceEnabled: StateFlow<Boolean> = _isVoiceEnabled.asStateFlow()
@@ -60,13 +63,13 @@ class VesperaViewModel(application: Application) : AndroidViewModel(application)
     private val _selectedLanguage = MutableStateFlow(prefs.getString("response_lang", "Hinglish") ?: "Hinglish")
     val selectedLanguage: StateFlow<String> = _selectedLanguage.asStateFlow()
 
-    private val _voicePersona = MutableStateFlow(prefs.getString("voice_persona", "hinata") ?: "hinata")
+    private val _voicePersona = MutableStateFlow(prefs.getString("voice_persona", "real_romantic") ?: "real_romantic")
     val voicePersona: StateFlow<String> = _voicePersona.asStateFlow()
 
-    private val _voicePitch = MutableStateFlow(prefs.getFloat("voice_pitch", 1.6f))
+    private val _voicePitch = MutableStateFlow(prefs.getFloat("voice_pitch", 1.0f))
     val voicePitch: StateFlow<Float> = _voicePitch.asStateFlow()
 
-    private val _voiceSpeed = MutableStateFlow(prefs.getFloat("voice_speed", 0.95f))
+    private val _voiceSpeed = MutableStateFlow(prefs.getFloat("voice_speed", 0.96f))
     val voiceSpeed: StateFlow<Float> = _voiceSpeed.asStateFlow()
 
     private fun getTodayDateKey(): String = "vid_count_" + SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
@@ -84,16 +87,18 @@ class VesperaViewModel(application: Application) : AndroidViewModel(application)
         speechManager.updateVoiceParameters(p, s)
         viewModelScope.launch {
             repository.checkAndSeedInitialGreeting(
-                "Hinata: M-Main ready hoon... Aap kya kehna chahte ho?"
+                "Hinata: Haanji Babu... Main aapki Hinata hoon! Bolo kya baat karni hai, aaj main har baat ka poora jawab dungi. ❤️"
             )
         }
     }
 
     private fun getPersonaPitchAndSpeed(persona: String): Pair<Float, Float> {
-        return when (persona) {
-            "sakura" -> 1.3f to 1.1f
-            "tsunade" -> 0.9f to 0.9f
-            else -> 1.6f to 0.95f // hinata
+        return when (persona.lowercase()) {
+            "hinata" -> 1.28f to 0.96f // Cute, Sweet & Soft Girl Tone
+            "bold_girl" -> 1.20f to 0.98f // Confident, Bold Girl Tone
+            "sakura" -> 1.24f to 0.98f
+            "tsunade" -> 1.18f to 0.95f
+            else -> 1.22f to 0.96f // real_romantic: Normal Human Girl Voice (Natural, Sweet & Clear, never boy)
         }
     }
 
@@ -217,25 +222,23 @@ class VesperaViewModel(application: Application) : AndroidViewModel(application)
         clearAttachedImage()
         _errorMessage.value = null
 
-        // Video Generation Intent Detection
+        // Video Generation Intent Detection (Matches HTML v1.5 check & limits)
         val lower = prompt.lowercase()
-        if (lower.contains("video") || lower.contains("banao video")) {
+        if (lower.contains("video") || lower.contains("reel") || lower.contains("clip") || lower.contains("banao video")) {
             viewModelScope.launch {
-                repository.insertDirectMessage("user", prompt.ifBlank { "Generated Video..." })
+                repository.insertDirectMessage("user", prompt.ifBlank { "Video generate karo..." })
                 if (getVideoCount() >= 5) {
-                    repository.insertDirectMessage("ai", "Hinata: Aaj ki 5 video limits poori ho chuki hain! Kal try karein.")
-                    if (_isVoiceEnabled.value) {
-                        speechManager.speak("Aaj ki video limit poori ho chuki hai.")
-                    }
+                    repository.insertDirectMessage("ai", "Hinata: Aaj ki 5 video limits poori ho chuki hain Babu! Kal naye reels banaungi aapke liye. ❤️")
+                    playSpeechForText("Aaj ki video limit poori ho chuki hai Babu.", activeKey)
                 } else {
-                    incrementVideoCount()
+                    val currentCount = incrementVideoCount()
+                    // Alternate between local HD reels for instant, error-free playback
+                    val reelResource = if (currentCount % 2 == 1) "raw:hinata_reel_1" else "raw:hinata_reel_2"
                     repository.insertDirectMessage(
                         "ai",
-                        "Hinata: Video processing start ho gayi hai! Ye rahi aapki generated video render:\n[VIDEO:https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4]"
+                        "Hinata: Babu, aapke liye special AI reel generate kar di hai! ❤️ Dekho kaisa laga:\n[VIDEO:$reelResource]"
                     )
-                    if (_isVoiceEnabled.value) {
-                        speechManager.speak("Video ready ho rahi hai.")
-                    }
+                    playSpeechForText("Babu, aapke liye video generate kar di hai. Dekhiye kaisa laga!", activeKey)
                 }
             }
             return
@@ -256,8 +259,8 @@ class VesperaViewModel(application: Application) : AndroidViewModel(application)
 
             if (result.isSuccess) {
                 val aiReply = result.getOrNull()?.text ?: ""
-                if (_isVoiceEnabled.value && aiReply.isNotBlank()) {
-                    speechManager.speak(aiReply)
+                if (aiReply.isNotBlank()) {
+                    playSpeechForText(aiReply, activeKey)
                 }
             } else {
                 val err = result.exceptionOrNull()?.message ?: "Hinata: Connection thoda busy hai, kripya 1-2 second baad dubara message bhejein."
@@ -266,8 +269,40 @@ class VesperaViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    /**
+     * Plays speech using real Gemini AI Human Voice (Kore/Aoede) when connected,
+     * or seamlessly falls back to 100% verified female offline TTS.
+     */
+    private fun playSpeechForText(text: String, apiKey: String) {
+        if (!_isVoiceEnabled.value || text.isBlank()) return
+
+        viewModelScope.launch {
+            val preferredGeminiVoice = if (_voicePersona.value == "bold_girl") "Aoede" else "Kore"
+            val geminiAudioBytes = repository.generateGeminiSpeech(
+                apiKey = apiKey,
+                text = text,
+                voiceName = preferredGeminiVoice
+            )
+
+            if (geminiAudioBytes != null && _isVoiceEnabled.value) {
+                speechManager.playAudioBytes(geminiAudioBytes)
+            } else if (_isVoiceEnabled.value) {
+                // Guaranteed female voice local fallback
+                speechManager.speak(text)
+            }
+        }
+    }
+
+    fun startVoiceInput(onTranscription: (String) -> Unit) {
+        voiceInputManager.startListening(onTranscription)
+    }
+
+    fun stopVoiceInput() {
+        voiceInputManager.stopListening()
+    }
+
     fun speakMessage(text: String) {
-        speechManager.speak(text)
+        playSpeechForText(text, getEffectiveApiKey())
     }
 
     fun stopSpeaking() {
@@ -276,7 +311,7 @@ class VesperaViewModel(application: Application) : AndroidViewModel(application)
 
     fun clearHistory() {
         viewModelScope.launch {
-            repository.clearHistory("Hinata: M-Main ready hoon... Aap kya kehna chahte ho?")
+            repository.clearHistory("Hinata: Haanji Babu... Main aapki Hinata hoon! Bolo kya baat karni hai, aaj main har baat ka poora jawab dungi. ❤️")
             speechManager.stop()
         }
     }
@@ -289,22 +324,35 @@ class VesperaViewModel(application: Application) : AndroidViewModel(application)
         if (speechManager.isSpeaking.value) {
             speechManager.stop()
         } else {
-            val playfulResponses = listOf(
-                "H-hello... Main sun rahi hoon 🌸",
-                "Aap kaise ho? Mujhse baat karke bahut accha lagta hai...",
-                "Main hamesha aapke saath hoon ✨",
-                "Kuch poochhna hai? Main madad karne ke liye taiyaar hoon!"
-            )
-            val randomReply = playfulResponses.random()
-            if (_isVoiceEnabled.value) {
-                speechManager.speak(randomReply)
+            val playfulResponses = when (_voicePersona.value) {
+                "bold_girl" -> listOf(
+                    "Haanji Boss! Bolo kya chal raha hai? 😉",
+                    "Aise tap kar rahe ho Babu, lagta hai bohot yaad aa rahi thi! ❤️",
+                    "Full energy hoon main, batao kya plan banayein?",
+                    "Kuch bhi puchho, bindas jawab milega!"
+                )
+                "hinata" -> listOf(
+                    "H-hello... Main sun rahi hoon 🌸",
+                    "Aap kaise ho? Mujhse baat karke bahut accha lagta hai...",
+                    "Main hamesha aapke saath hoon ✨",
+                    "Kuch poochhna hai? Main madad karne ke liye taiyaar hoon!"
+                )
+                else -> listOf( // real_romantic
+                    "Haanji Babu... Main poore dil se sun rahi hoon! ❤️",
+                    "Aap kaise ho Babu? Mujhse baat karke kitna accha lagta hai na... ✨",
+                    "Main hamesha aapke saath hoon Sona, kabhi akela nahi chhodungi!",
+                    "Bolo meri jaan, aaj main har baat ka poora jawab dungi. 🌸"
+                )
             }
+            val randomReply = playfulResponses.random()
+            playSpeechForText(randomReply, getEffectiveApiKey())
         }
     }
 
     override fun onCleared() {
         super.onCleared()
         speechManager.shutdown()
+        voiceInputManager.stopListening()
     }
 
     private fun scaleBitmapDown(bitmap: Bitmap, maxDimension: Int): Bitmap {

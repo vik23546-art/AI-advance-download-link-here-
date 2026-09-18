@@ -185,26 +185,23 @@ fun VesperaAvatarView(
                     .clickable { onAvatarTap() },
                 contentAlignment = Alignment.Center
             ) {
-                // Outer glowing halo
+                // Outer glowing halo (matching HTML v1.5 linear-gradient(135deg, #0a84ff, #ff2d55))
                 Box(
                     modifier = Modifier
                         .size(184.dp)
                         .clip(CircleShape)
                         .background(
-                            brush = Brush.sweepGradient(
+                            brush = Brush.linearGradient(
                                 colors = listOf(
-                                    NeonPurple,
-                                    GlowingCyan,
-                                    AccentPink,
-                                    SoftLavender,
-                                    NeonPurple
+                                    Color(0xFF0A84FF),
+                                    Color(0xFFFF2D55)
                                 )
                             )
                         )
                         .border(
-                            width = if (isSpeaking) 2.5.dp else 1.5.dp,
+                            width = if (isSpeaking) 3.dp else 2.dp,
                             brush = Brush.linearGradient(
-                                listOf(GlowingCyan, NeonPurple, AccentCoral)
+                                listOf(Color(0xFF0A84FF), Color(0xFFFF2D55))
                             ),
                             shape = CircleShape
                         )
@@ -260,19 +257,19 @@ fun VesperaAvatarView(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(8.dp)
-                                .clip(CircleShape)
-                                .background(if (isSpeaking) GlowingCyan else Color(0xFF2ED573))
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = if (isSpeaking) "Speaking… 🎙️" else "Vespera • Online",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                color = if (isSpeaking) GlowingCyan else SoftLavender,
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 11.sp
-                            )
-                        )
+                                 .size(8.dp)
+                                 .clip(CircleShape)
+                                 .background(if (isSpeaking) GlowingCyan else Color(0xFF2ED573))
+                         )
+                         Spacer(modifier = Modifier.width(6.dp))
+                         Text(
+                             text = if (isSpeaking) "Speaking… 🎙️" else "● Online & Unrestricted",
+                             style = MaterialTheme.typography.labelSmall.copy(
+                                 color = if (isSpeaking) GlowingCyan else Color(0xFF2ED573),
+                                 fontWeight = FontWeight.SemiBold,
+                                 fontSize = 11.sp
+                             )
+                         )
                     }
                 }
 

@@ -90,4 +90,8 @@ class VesperaRepository(
             )
         )
     }
+
+    suspend fun generateGeminiSpeech(apiKey: String, text: String, voiceName: String = "Kore"): ByteArray? {
+        return geminiApiClient.generateGeminiSpeech(apiKey, text, voiceName)
+    }
 }

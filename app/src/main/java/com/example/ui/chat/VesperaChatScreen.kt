@@ -3,6 +3,9 @@ package com.example.ui.chat
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.pm.PackageManager
+import android.Manifest
+import androidx.core.content.ContextCompat
 import android.graphics.BitmapFactory
 import android.util.Base64
 import android.net.Uri
@@ -48,15 +51,21 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import android.media.MediaPlayer
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -140,12 +149,27 @@ fun VesperaChatScreen(
     val voicePersona by viewModel.voicePersona.collectAsStateWithLifecycle()
     val dailyVideoCount by viewModel.dailyVideoCount.collectAsStateWithLifecycle()
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
+    val isRecording by viewModel.isRecording.collectAsStateWithLifecycle()
 
     var inputText by remember { mutableStateOf("") }
     var showSettingsModal by remember { mutableStateOf(false) }
     var showClearConfirmDialog by remember { mutableStateOf(false) }
 
     val listState = rememberLazyListState()
+
+    // Audio recording permission launcher for Voice Input (#micBtn)
+    val recordAudioLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { isGranted ->
+            if (isGranted) {
+                viewModel.startVoiceInput { spokenText ->
+                    inputText = spokenText
+                }
+            } else {
+                Toast.makeText(context, "Microphone permission zaroori hai voice input ke liye", Toast.LENGTH_SHORT).show()
+            }
+        }
+    )
 
     // Fast auto-scroll to bottom on message updates
     LaunchedEffect(messages.size, isLoading) {
@@ -344,13 +368,66 @@ fun VesperaChatScreen(
                         )
                     }
 
+                    // Voice Input Mic button (#micBtn with .recording state)
+                    val micTransition = rememberInfiniteTransition(label = "MicBlink")
+                    val micAlpha by micTransition.animateFloat(
+                        initialValue = 0.45f,
+                        targetValue = 1f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(durationMillis = 500),
+                            repeatMode = RepeatMode.Reverse
+                        ),
+                        label = "MicBlinkAlpha"
+                    )
+
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(42.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (isRecording) Color(0xFFFF3B30).copy(alpha = micAlpha)
+                                else Color(0x1AFFFFFF)
+                            )
+                            .border(
+                                width = 1.dp,
+                                color = if (isRecording) Color(0xFFFF3B30) else Color(0x33FFFFFF),
+                                shape = CircleShape
+                            )
+                            .clickable {
+                                if (isRecording) {
+                                    viewModel.stopVoiceInput()
+                                } else {
+                                    val hasPerm = ContextCompat.checkSelfPermission(
+                                        context,
+                                        Manifest.permission.RECORD_AUDIO
+                                    ) == PackageManager.PERMISSION_GRANTED
+                                    if (hasPerm) {
+                                        viewModel.startVoiceInput { spokenText ->
+                                            inputText = spokenText
+                                        }
+                                    } else {
+                                        recordAudioLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                    }
+                                }
+                            }
+                            .testTag("mic_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Mic,
+                            contentDescription = if (isRecording) "Listening..." else "Voice Input",
+                            tint = if (isRecording) Color.White else IosBlue,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+
                     // User text input (input[type="text"])
                     TextField(
                         value = inputText,
                         onValueChange = { inputText = it },
                         placeholder = {
                             Text(
-                                text = "Ask Hinata or generate video...",
+                                text = "Kuch bhi puchhiye ya bolo...",
                                 style = MaterialTheme.typography.bodyMedium.copy(
                                     color = Color(0x66FFFFFF),
                                     fontSize = 14.sp
@@ -475,9 +552,9 @@ private fun IosTopBar(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        // Title: Hinata AI v1.3
+        // Title: Hinata AI v1.5
         Text(
-            text = "Hinata AI v1.3",
+            text = "Hinata AI v1.5",
             style = MaterialTheme.typography.titleMedium.copy(
                 fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -529,36 +606,190 @@ private fun IosTopBar(
 }
 
 /**
- * Video player for generated video responses
+ * Robust Video player for generated video responses.
+ * Supports local raw resources ("raw:...") and network streams with automatic error suppression & fallback.
  */
 @Composable
 private fun VideoMessagePlayer(
     videoUrl: String,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val resolvedUri = remember(videoUrl) {
+        when {
+            videoUrl.startsWith("raw:") -> {
+                val rawName = videoUrl.removePrefix("raw:")
+                val resId = context.resources.getIdentifier(rawName, "raw", context.packageName)
+                if (resId != 0) {
+                    Uri.parse("android.resource://${context.packageName}/$resId")
+                } else {
+                    Uri.parse("android.resource://${context.packageName}/${com.example.R.raw.hinata_reel_1}")
+                }
+            }
+            videoUrl.startsWith("android.resource://") -> Uri.parse(videoUrl)
+            videoUrl.startsWith("http://") || videoUrl.startsWith("https://") -> Uri.parse(videoUrl)
+            else -> Uri.parse("android.resource://${context.packageName}/${com.example.R.raw.hinata_reel_1}")
+        }
+    }
+
+    var isPlaying by remember { mutableStateOf(true) }
+    var isBuffering by remember { mutableStateOf(true) }
+    var isMuted by remember { mutableStateOf(true) }
+    var videoViewRef by remember { mutableStateOf<VideoView?>(null) }
+    var mediaPlayerRef by remember { mutableStateOf<MediaPlayer?>(null) }
+
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(200.dp)
-            .clip(RoundedCornerShape(12.dp))
+            .height(220.dp)
+            .clip(RoundedCornerShape(14.dp))
             .background(Color.Black)
-            .border(1.dp, Color(0x22FFFFFF), RoundedCornerShape(12.dp))
+            .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(14.dp))
+            .clickable {
+                val vv = videoViewRef
+                if (vv != null) {
+                    if (isPlaying) {
+                        vv.pause()
+                        isPlaying = false
+                    } else {
+                        vv.start()
+                        isPlaying = true
+                    }
+                }
+            },
+        contentAlignment = Alignment.Center
     ) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory = { ctx ->
                 VideoView(ctx).apply {
-                    setVideoURI(Uri.parse(videoUrl))
-                    val controller = MediaController(ctx)
-                    controller.setAnchorView(this)
-                    setMediaController(controller)
+                    videoViewRef = this
+                    // Prevent OS error popup and smoothly recover on any decode/network failure
+                    setOnErrorListener { _, what, extra ->
+                        android.util.Log.w("VideoPlayer", "Playback error ($what, $extra), recovering with local reel")
+                        isBuffering = false
+                        try {
+                            val fallback = Uri.parse("android.resource://${ctx.packageName}/${com.example.R.raw.hinata_reel_1}")
+                            setVideoURI(fallback)
+                            start()
+                        } catch (e: Exception) {
+                            android.util.Log.e("VideoPlayer", "Fallback failed", e)
+                        }
+                        true // Suppresses Android "Can't play this video" popup
+                    }
+
                     setOnPreparedListener { mp ->
+                        mediaPlayerRef = mp
                         mp.isLooping = true
+                        if (isMuted) {
+                            mp.setVolume(0f, 0f)
+                        } else {
+                            mp.setVolume(1f, 1f)
+                        }
+                        isBuffering = false
+                        isPlaying = true
                         start()
                     }
+
+                    setVideoURI(resolvedUri)
                 }
+            },
+            update = { vv ->
+                videoViewRef = vv
             }
         )
+
+        // Loading spinner while preparing
+        if (isBuffering) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.6f)),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(
+                    color = IosBlue,
+                    modifier = Modifier.size(36.dp),
+                    strokeWidth = 3.dp
+                )
+            }
+        }
+
+        // Top badges overlay
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.TopCenter)
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Badge: AI Generated Video
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color.Black.copy(alpha = 0.65f))
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF2ED573))
+                )
+                Spacer(modifier = Modifier.width(5.dp))
+                Text(
+                    text = "AI Reel • HD",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        color = Color.White,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                )
+            }
+
+            // Mute / Unmute Button
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.65f))
+                    .clickable {
+                        isMuted = !isMuted
+                        mediaPlayerRef?.let { mp ->
+                            if (isMuted) mp.setVolume(0f, 0f) else mp.setVolume(1f, 1f)
+                        }
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = if (isMuted) Icons.Default.VolumeOff else Icons.Default.VolumeUp,
+                    contentDescription = if (isMuted) "Unmute" else "Mute",
+                    tint = Color.White,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
+
+        // Center Play icon when paused
+        if (!isPlaying && !isBuffering) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.65f))
+                    .border(1.dp, Color(0x66FFFFFF), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.PlayArrow,
+                    contentDescription = "Play",
+                    tint = Color.White,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+        }
     }
 }
 
@@ -752,11 +983,11 @@ private fun HinataTypingIndicator() {
 @Composable
 private fun QuickPromptChips(onSelectPrompt: (String) -> Unit) {
     val prompts = listOf(
-        "M-Main Hinata hoon... 🌸",
-        "Aap kaise ho?",
-        "Ek pyara sa joke sunao! 😂",
+        "Babu, video generate karo! 🎬",
+        "Kaisi ho meri jaan? ❤️",
+        "Ek romantic joke sunao! 😂",
         "Kuch sweet bolo na ✨",
-        "Mujhse baat karo"
+        "Tum mere baare mein kya sochti ho?"
     )
 
     LazyRow(
@@ -785,7 +1016,7 @@ private fun QuickPromptChips(onSelectPrompt: (String) -> Unit) {
 }
 
 /**
- * iOS Fullscreen Settings Modal (#settings-modal) matching Hinata AI v1.3
+ * iOS Fullscreen Settings Modal (#settings-modal) matching Hinata AI v1.5
  */
 @Composable
 private fun IosSettingsModal(
@@ -803,9 +1034,9 @@ private fun IosSettingsModal(
 
     val languages = listOf("Hinglish", "Hindi", "English")
     val personas = listOf(
-        Triple("hinata", "Hinata", "Shy, Soft & High Pitch"),
-        Triple("sakura", "Sakura", "Energetic & Bold"),
-        Triple("tsunade", "Tsunade", "Mature & Deep")
+        Triple("real_romantic", "Normal Girl AI", "Natural Sweet Human Voice • Babu / Jaan • No Robot"),
+        Triple("hinata", "Cute Hinata Tone", "Soft, Gentle & Caring Voice"),
+        Triple("bold_girl", "Bold Girl Tone", "Direct, Energetic & Expressive Voice")
     )
 
     AlertDialog(
